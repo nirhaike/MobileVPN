@@ -1,0 +1,185 @@
+<html>
+	<head>
+		<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+		<meta content="utf-8" http-equiv="encoding">
+		<title>MobileVPN Configure</title>
+		<link rel="stylesheet" type="text/css" href="style.css">
+		<script src="jquery-3.2.0.min.js"></script>
+	</head>
+	<body>
+		<div id="mySidenav" class="sidenav">
+		  <span class="sidenav_head"><font color="#dfbc82">Mobile</font>VPN</span>
+		  <span class="sidenav_text">Navigation bar</span>
+		  <a href="javascript:void(0)" onclick="gotoPage(0)">▶ Monitor</a>
+		  <a href="javascript:void(0)" onclick="gotoPage(1)">▶ Services</a>
+		  <a href="javascript:void(0)" onclick="gotoPage(2)">▶ Config</a>
+		  <span class="sidenav_text"><a href="/logout">🔒 Log out</a></span>
+		  </div>
+		<div id="status">
+			<img src="online.png"/>&nbsp;Server online
+		</div>
+		<div id="main">
+			<span id="nav0" style="display:none">
+				<span id="device_data">
+				  
+				</span>
+
+				<table style="border-spacing: 25px 20px;">
+					{DEVICE_TABLE}
+				<!--
+				<tr>
+					<td>
+						<span class="device">
+						<a href="javascript:void(0)" onclick="showDevice(0)"><img src="client_unsecure.png"></a><br>Name: Nexus 5<br>Token: 4f709cab==<br>
+						</span>
+					</td>
+					<td>
+						<span class="device">
+						<a href="javascript:void(0)" onclick="showDevice(1)"><img src="client_secure.png"></a><br>Name: Nexus 6P<br>Token: f0a1473c==<br>
+						</span>
+					</td>
+				</tr>
+				-->
+				</table>
+				<span id="devinfo"></span>
+				<span id="stream_code" class="code" style="display:none">
+				<span id="stream_info">Click on a stream to display it</span>
+				<span id="stream"></span>
+				</span>
+			</span>
+			<span id="nav1" style="display:none">
+				<font color="#707070">Services are on since {TIME_STARTUP}</font><br><br>
+				<b>Tunnel thread</b> was recently updated on {TIME_TUNNEL}<br>
+				<b>Router thread</b> was recently updated on {TIME_ROUTER} <br>
+				<b>Sessions handler thread</b> was recently updated on {TIME_SESSIONS}<br>
+				<b>Connections handler thread</b> was recently updated on {TIME_CONNECTIONS}<br>
+				<b>Config thread</b> was recently updated on {TIME_CONFIG}<br>
+				<br>
+				<h3>Console log</h3>
+				<font color="#505050">Displaying up to the last {MAX_LOG} log messages</font>
+				<span class="code" data-update="partial-log.txt" data-refresh-interval="1000">{LOG}</span>
+				<span class="ulContainer"><a href="log.txt" download>Download full log</a></span>
+				<br>
+				<center><a href="?restart"><span class="sButton">Restart All Services</span></a></center>
+			</span>
+			<span id="nav2" style="display:none">
+				<font color="#707070">Displaying all server features (Including experimental features).</font>
+				<h2>Server Configuration</h2>
+				<span id="config_window">
+					<form id="form_config" action="config" method="get">
+						VPN port:&nbsp;
+						<input name="port" type="number" min="1024" max="65536" value="{SERVER_PORT}"/><br><br>
+						Maximum clients:&nbsp;
+						<select name="max_conn">
+							<option selected disabled>{MAX_CONN}</option>
+							<option value="5">5</option>
+		  					<option value="10">10</option>
+		  					<option value="25">25</option>
+		  					<option value="50">50</option>
+		  					<option value="100">100</option>
+						</select><br><br>
+
+						Disconnect unused connection after
+						<select name="close_conn">
+							<option selected disabled>{CLOSE_CONN_TIME}</option>
+							<option value="60">1 min</option>
+		  					<option value="120">2 mins</option>
+		  					<option value="300">5 mins</option>
+		  					<option value="600">10 mins</option>
+		  					<option value="1800">30 mins</option>
+						</select><br><br>
+
+						Close unused port session after
+						<select name="close_port">
+							<option selected disabled>{CLOSE_PORT_TIME}</option>
+							<option value="15">15 secs</option>
+		  					<option value="30">30 secs</option>
+		  					<option value="60">60 secs</option>
+		  					<option value="120">120 secs</option>
+		  					<option value="180">180 secs</option>
+						</select><br><br>
+
+						<label class="switch">
+							<input type="checkbox" name="pcap" {PCAP_TRAFFIC}>
+							<div class="slider round"></div>
+						</label>
+						Packet capture service<br><br>
+
+						<label class="switch">
+							<input type="checkbox" name="unsecure" {UNSECURE_CONNECTIONS}>
+							<div class="slider round"></div>
+						</label>
+						Allow unsecure connections<br>
+						<font color="#d00000">Warning: </font><font color="#808080">By default, the client selects the encryption method. Unchecking this unallows clients to connect to the server without any kind of encryption, which might cause a slower traffic.</font><br><br>
+						<a href="javascript:void(0)" onclick="saveConfig()"><span class="sButton">Save Changes</span></a>
+					</form>
+				</span>
+				<span id="block_window">
+					<table>
+						<tr><th>Blocked IP Address</th><th>Operation</th></tr>
+						<tr><td>1.2.3.4</td><td><a href="?removeBlock=0">Remove</a></td></tr>
+						<tr><td>2.4.6.8</td><td><a href="?removeBlock=1">Remove</a></td></tr>
+						<tr><td><input type="text" id="block_ip" placeholder="aaa.bbb.ccc.ddd"/></td><td><a href="javascript:void(0)" onclick="blockIP()"><font color="#30609a">Add</font></a></td></tr>
+					</table>
+				</span>
+			<br>
+			</span>
+		</div>
+
+		<script>
+		var currNav = 0;
+		var currDevice = -1;
+		var deviceData = ""; // device network usage info span (applications, etc)
+		var data = {DEVICE_DATA}; // [["Nexus 5", "4f709cab==", "None", "193"], ["Nexus 6P", "f0a1473c==", "AES", "851"]]
+		gotoPage(currNav);
+
+		$('[data-update]').each(function() {
+			var self = $(this);
+			var target = self.data('update');   
+			var refreshId =  setInterval(function() { self.load(target); }, self.data('refresh-interval'));
+		});
+
+		function gotoPage(page) {
+			document.getElementById('nav' + currNav).style.display = 'none';
+			document.getElementById('nav' + page).style.display = 'block';
+			currNav = page;
+		}
+		function showDevice(id) {
+			if (currDevice == id || id == -1) {
+				document.getElementById('device_data').style.opacity = 0;
+				document.getElementById('stream_code').style = "display:none";
+				document.getElementById('devinfo').innerHTML = "";
+				document.getElementById('stream').innerHTML = "";
+				document.getElementById('stream_info').innerHTML = "Click on a stream to display it";
+				currDevice = -1;
+				deviceData = "";
+			} else {
+				// load the window
+				currDevice = id;
+				document.getElementById('device_data').innerHTML = "<span id=\"close\"><a href=\"javascript:void(0)\" onclick=\"showDevice(-1)\"><b>×</b></a></span><br><b>" + currDevice + " " + data[currDevice][0] + "</b><br>IP address: " + data[currDevice][4] + "<br>Encryption: " + data[currDevice][2] + "<br>Token: " + data[currDevice][1] + "<br>Packets count: " + data[currDevice][3] + "<br><a href=\"?zip=" + currDevice + "\"><span class=\"bluelink\">Download .pcap archive</span></a><br><a href=\"?rmdev=" + currDevice + "\"><span class=\"redlink\">Remove Device</span></a>";
+				document.getElementById('device_data').style.opacity = 1;
+				document.getElementById('stream_code').style = "display:block";
+				// load the info span
+				deviceData = '/device/' + currDevice;
+				$("#devinfo").load(deviceData);
+			}
+		}
+		function getStream(id) {
+			document.getElementById('stream_info').innerHTML = "";
+			$("#stream").load("/stream/" + currDevice + "/" + id,
+			function(){
+				if (document.getElementById('stream').innerHTML.length == 0) {
+					document.getElementById('stream').innerHTML = "Could not load the requested stream."
+					$("#devinfo").load(deviceData);
+				}
+			});
+		}
+		function saveConfig() {
+			document.getElementById("form_config").submit();
+		}
+		function blockIP() {
+			window.location.href = "?blockIP=" + document.getElementById("block_ip").value;
+		}
+		</script>
+	</body>
+</html>

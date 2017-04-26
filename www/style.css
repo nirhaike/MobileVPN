@@ -1,0 +1,355 @@
+body {
+    font-family: arial, sans-serif;
+    background-color: #efefef;
+}
+
+.sidenav {
+    height: 100%;
+    width: 155px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: #42444e;/*#fafafa;*/
+    overflow-x: hidden;
+    padding-top: 60px;
+    transition: 0.5s;
+    -webkit-transition: 0.5s;
+}
+
+.sidenav:hover a {
+    font-size: 14px;
+}
+
+.sidenav_head {
+      display: block;
+      padding: 8px 8px 20px 14px;
+      padding-left: 0;
+      padding-right: 0;
+      text-align: center;
+      font-family: "Whitney SSm A", "Whitney SSm B", "Lucida Grande", "Lucida Sans", Verdana, Helvetica, Arial, sans-serif;
+      font-size: 24px;
+      color: #cdcedc;
+}
+
+.sidenav a {
+    display: block;
+    padding: 8px 8px 8px 32px;
+    font-family: "Whitney SSm A", "Whitney SSm B", "Lucida Grande", "Lucida Sans", Verdana, Helvetica, Arial, sans-serif;
+    text-decoration: none;
+    font-size: 14px;
+    color: #ccc3b9;/*#4f4f4f;*/
+    transition: 0.3s;
+}
+
+.sidenav a:hover {
+    color: #fafafa;
+}
+
+.sidenav_text {
+      display:inline-block;
+      padding: 8px 8px 10px 12px;
+      font-family: "Whitney SSm A", "Whitney SSm B", "Lucida Grande", "Lucida Sans", Verdana, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      color: #8d8e9c;
+}
+
+.sidenav_text a {
+      display:block;
+      padding: 8px 8px 10px 0px;
+      font-size: 14px;
+      color: #8d8e9c;
+}
+
+.sidenav_text a:hover {
+      display:block;
+      font-size: 14px;
+      color: #adaebc;
+}
+
+#close a:visited { text-decoration: none; color: #4f4f4f;}
+#close a:link { text-decoration: none; color: #4f4f4f;}
+#close a:active { text-decoration: none; color: #4f4f4f;}
+#close a:focus { text-decoration: none; color: #4f4f4f;}
+
+/*
+.sidenav {
+    height: 100%;
+    width: 175px;
+    position: fixed;
+    z-index: 1;
+    top: 0;
+    left: 0;
+    background-color: #111;
+    overflow-x: hidden;
+    padding-top: 60px;
+    transition: 0.5s;
+    -webkit-transition: 0.5s;
+}
+
+.sidenav:hover a {
+    font-size: 29px;
+}
+
+.sidenav:hover {
+    width: 200px;
+}
+
+.sidenav a {
+    padding: 8px 8px 8px 32px;
+    text-decoration: none;
+    font-size: 25px;
+    color: #818181;
+    display: block;
+    transition: 0.3s;
+}
+
+.sidenav a:hover, .offcanvas a:focus{
+    color: #f1f1f1;
+}
+
+*/
+
+#nav1 {
+    padding-left: 10px;
+}
+
+#nav2 {
+    padding-left: 10px;
+}
+
+#nav1 a {color: #204090;}
+#nav1 a:hover {color: #204090;}
+#nav1 a:focus {color: #204090;}
+#nav1 a:visited {color: #204090;}
+
+#config_window {
+    width: 50%;
+    float: left;
+}
+
+#block_window {
+    width: 50%;
+    float: right;
+}
+
+#block_window a {color: #ba0000;}
+#block_window a:hover {color: #ba0000;}
+#block_window a:focus {color: #ba0000;}
+#block_window a:visited {color: #ba0000;}
+
+#block_window a:hover {
+    text-decoration: underline;
+}
+
+#block_window table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+#block_window th, td {
+    text-align: left;
+    padding: 8px;
+}
+
+#block_window tr:nth-child(even){background-color: #f9f9f9;}
+
+
+.device {
+    width: 200px;
+    height: 200px;
+}
+
+#status {
+    top: 0;
+    left: 0;
+    padding: 0;
+    margin: 0;
+    padding-left:  21px; /*212px;*/
+    position:fixed;
+    top:0px;
+    left:0px;
+    height: 45px !important;
+    line-height: 45px !important;
+    width:100%;
+    font-family: arial, sans-serif;
+    background-color: #109e94; /* #4c70a8 */
+    color:#F0F0F0;
+    z-index: 100;
+}
+
+#device_data {
+    display: block;
+    opacity: 0;
+    padding-left: 10px;
+    padding-bottom: 15px;
+    width: 200px;
+    color: #111;
+    background-color: #FFF;
+    border: 3px solid #b0b0b0;
+    border-radius: 5px;
+    font-family: sans-serif;
+    position:relative;
+    float:right;
+    overflow-x: hidden;
+    transition: 0.5s;
+    -webkit-transition: opacity .15s ease-in-out;
+    -moz-transition: opacity .15s ease-in-out;
+    -ms-transition: opacity .15s ease-in-out;
+    -o-transition: opacity .15s ease-in-out;
+    transition: opacity .15s ease-in-out;
+}
+a {
+  text-decoration: none;
+}
+
+#close a {
+    float:right;
+    margin: 3px;
+    text-decoration: none;
+    color: #505050;
+}
+
+#close a:visited { text-decoration: none; color: #909090;}
+#close a:link { text-decoration: none; color: #909090;}
+#close a:active { text-decoration: none; color: #909090;}
+
+.redlink {
+    text-decoration: none;
+    color: #aa0000;
+}
+
+.redlink:hover {
+    text-decoration: underline;
+}
+
+.bluelink {
+    text-decoration: none;
+    color: #30609a;
+}
+
+.bluelink:hover {
+    text-decoration: underline;
+}
+
+/* Style page content - use this if you want to push the page content to the right when you open the side navigation */
+#main {
+    transition: margin-left .5s;
+    padding-left: 200px;
+    padding-top: 45;
+}
+
+.ulContainer:hover {
+  text-decoration: underline;
+}
+
+.sButton {
+    background-color: #2196F3;
+    border: 1px solid black;
+    border-radius: 5px;
+    padding: 2px;
+    text-decoration: none;
+    color: #fafafa;
+    -webkit-transition: .4s;
+    transition: .4s;
+}
+
+.sButton:hover {
+    background-color: #0476d3;
+    text-decoration: none;
+    color: #fafafa;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 14px;
+}
+
+.switch input {display:none;}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 10px;
+  width: 10px;
+  left: 4px;
+  bottom: 2px;
+  background-color: white;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(10px);
+  -ms-transform: translateX(10px);
+  transform: translateX(10px);
+}
+
+/* Rounded sliders */
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+.code {
+    display: block;
+    margin: 0 auto;
+    width: 90%;
+    min-height: 30;
+    padding-top: 5px;
+    padding-bottom: 12px;
+    padding-left: 8px;
+    padding-right: 8px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    background-color: #e0e0e0;
+    border: 1px solid #a0a0a0;
+}
+
+.stream_port {
+  border-bottom: 1px
+  dotted blue;
+  text-decoration: none;
+}
+
+#stream {
+  max-width: 40%;
+  overflow-x: hidden;
+  word-wrap:break-word;
+}
+
+.streamdata {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+
+/* On smaller screens, where height is less than 450px, change the style of the sidenav (less padding and a smaller font size) */
+@media screen and (max-height: 450px) {
+    .sidenav {padding-top: 45px;}
+    .sidenav a {font-size: 18px;}
+}
