@@ -1,5 +1,4 @@
 # MobileVPN #
-===================
 A simple and flexible VPN server program written in python.
 
 ## Requirements ##
