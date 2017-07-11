@@ -9,9 +9,11 @@
 
 import pcap_writer
 import threading
+import random
 import debug
 import time
 import net
+import aes
 
 import zlib
 #import cStringIO as StringIO
@@ -26,8 +28,7 @@ TOKEN_SIZE = 4
 
 class Connection(object):
 	"""
-		This class handles the connection with a single vpn
-		client.
+		This class handles the connection with a single vpn client.
 	"""
 
 	def __init__(self, vpn, address, config):
@@ -37,7 +38,9 @@ class Connection(object):
 		self.token = None
 		self.encryption = None
 		self.pcap = None
-		self.zip_traffic = False
+		self.zip_traffic = True # compress by default
+		self.options = 0x00 # client options
+
 		self.config = config
 
 		# client resources
@@ -105,8 +108,9 @@ class Connection(object):
 			try:
 				self.read_resource_part(data[11:])
 			except:
-				debug.debug(traceback.format_exc(), level=debug.ERROR)
-				debug.debug("[Error] cant read resource.", level=debug.ERROR)
+				#debug.debug(traceback.format_exc(), level=debug.ERROR)
+				#debug.debug("[Error] cant read resource.", level=debug.ERROR)
+				pass
 			return False
 		# check if the packet is valid
 		if len(data) < TOKEN_SIZE or data[:TOKEN_SIZE] != self.token:
@@ -118,25 +122,45 @@ class Connection(object):
 		# write to the pcap file
 		if self.pcap is not None:
 			self.pcap.write_packet(packet_data)
-		# handle the packet otherwise
-		self.vpn_service.get_router(). \
-				send_packet(packet_data, self)
+		# create the packet
+		packet = self.vpn_service.get_router().create_packet(packet_data)
+		# check if the destination is blocked
+		if packet.get_dest_ip() in self.config.BLOCKED_IPS:
+			return True
+		# handle the packet
+		self.vpn_service.get_router().send_packet(packet, self)
 		return True
 
 	def send_client(self, data):
 		self.vpn_service.send_packet(data, self.address)
 
 	def decrypt_packet(self, data):
-		#if self.encryption == None:
-		#	return data
+		"""
+			Decrypts and Decompresses the packet data
+		"""
 		if self.zip_traffic:
-			return zlib.decompress(data)
+			# decompress the data
+			data = zlib.decompress(data)
+		if self.encryption:
+			# decrypt the data
+			data = self.encryption.decrypt(data)
 		return data
 
+	def getintofbytes(self, data):
+		st = ""
+		for d in data:
+			st += str(ord(d)) + " "
+		return st
+
 	def encrypt_packet(self, data):
-		#if self.encryption == None:
-		#	return data
+		"""
+			Encrypts and Compresses the packet data
+		"""
+		if self.encryption:
+			# encrypt using a random IV (base64 output)
+			data = self.encryption.encrypt(data)
 		if self.zip_traffic:
+			# compress the data
 			return zlib.compress(data)
 		return data
 
@@ -174,33 +198,57 @@ class Connection(object):
 		# TODO this...
 		#return 
 
+	def generate_token(self):
+		"""
+			Generate a connection token.
+			The token cannot contain "null" (0) bytes.
+		"""
+		return "".join([chr(random.randint(1,255)) for i in range(4)])
+
 	def handshake(self):
+		"""
+			This function processes the handshake with a new client.
+		"""
 		data = self.next_packet()
 		# check if the packet is valid
-		if len(data) < 9 or data[:8] != "\x01\x02\x03\x04HELO":
-			debug.debug("[Connection] Bad handshake received.")
+		if len(data) < 10 or data[:8] != "\x01\x02\x03\x04HELO":
+			#debug.debug("[Connection] Bad handshake received.")
 			self.vpn_service.end_connection(self)
 			return
+		# get the options
+		self.options = ord(data[8])
 		# generate the token
-		self.token = "\x10\x20\x30\x40"
+		self.token = self.generate_token()
 		# set the device's name if available
 		self.name = "Device"
 		try:
-			if ord(data[8]) > 0:
-				self.name = data[9:9+ord(data[9])]
+			if ord(data[9]) > 0:
+				self.name = data[10:10+ord(data[9])]
 		except:
 			pass
-		# default encryption
-		self.encryption = "None"
+		# connection options byte
+		options = 0
+		# applications list option
+		if self.config.APPLICATIONS_LIST:
+			options += 0x01
+		# compression option
+		if self.zip_traffic:
+			options += 0x02
+		# encryption option
+		if self.config.SECURE_CONNECTIONS:
+			try:
+				self.encryption = aes.AESSession(self.config.KEY)
+				options += 0x04
+			except:
+				debug.debug("[Connection] Could not initialize the sessions encrypter.", level=debug.WARNING)
 		# send and receive ack
-		# byte #9 : options (0x01 - get applications list, 0x02 - zip traffic)
-		self.send_client("\x02\x02\x03\x04HELO\x01" + chr(len(self.token)) + self.token)
+		# byte #9 : options (0x01 - get applications list, 0x02 - zip traffic, 0x04 - encryption)
+		self.send_client("\x02\x02\x03\x04HELO" + chr(options) + chr(len(self.token)) + self.token)
 		self.save_packets = False
 		# create the pcap writer only if requested in the properties file
 		if self.config.PCAP_TRAFFIC:
 			self.pcap = pcap_writer.PcapWriter(self.name, self.config)
 		debug.debug("[Connection] A new client has been connected.")
-		debug.debug("[Connection] Could not initialize the sessions encrypter.", level=debug.WARNING)
 
 	def send_acknowledged(self, packet, expected_header):
 		"""
@@ -234,14 +282,32 @@ class Connection(object):
 			Returns a list that represents the connection object.
 			The list contains: the name, address, token and encryption type.
 		"""
+		# encryption text
+		encryption = "None"
+		if self.options > 0:
+			encryption = "AES (256 bit)"
+		# packet capture option
 		if self.pcap:
-			return [self.name, self.address[0], self.token, self.encryption, self.pcap.get_packets_count()]
-		return [self.name, self.address[0], self.token, self.encryption, 0]
+			return [self.name, self.address[0], self.token, encryption, self.pcap.get_packets_count()]
+		return [self.name, self.address[0], self.token, encryption, 0]
 
 	def is_initialized(self):
 		return not self.save_packets
 
+	def disconnect(self, end_conn=True):
+		"""
+			Ends the session with the vpn client and closes the connection.
+			@param end_conn Whether to call end_connection in the vpn listener.
+		"""
+		self.send_client("\x00\x00\x00\x00EXIT")
+		self.close()
+		if end_conn:
+			self.vpn_service.end_connection(self)
+
 	def close(self):
+		"""
+			This function is called after closing the vpn connection.
+		"""
 		# close the pcap file
 		if self.pcap is not None:
 			self.pcap.close()
@@ -253,7 +319,7 @@ class Connection(object):
 		"""
 		if time.time() - self.last_refresh > max_time:
 			# prepare to be closed
-			self.close()
+			self.disconnect(end_conn=False)
 			return False
 		return True
 
@@ -268,10 +334,13 @@ class Connection(object):
 		data = zlib.decompress(zdata)
 		# start reading the data
 		reader = binary_reader.BinaryReader(data)
-		# read the data filename (we don't really need it)
+		# read the data filename (appdata.bin, we don't really need it)
 		name = reader.read_string()
 		# the amount of listed packages
 		size = reader.read_int()
+		# clear all current packages
+		for package in self.applications:
+			self.applications[package].clear_connections()
 		# start gathering the data
 		for i in xrange(size):
 			# get the package name
@@ -279,13 +348,13 @@ class Connection(object):
 			if len(package) > 0 and package != "null":
 				num_ports = reader.read_int()
 				ports = {}
+				if package not in self.applications:
+					self.applications[package] = AppData(package)
 				for i in xrange(num_ports):
 					port = reader.read_int()
 					protocol = reader.read_string()
 					ports[port] = protocol
-					if package not in self.applications:
-						self.applications[package] = AppData(package)
-					self.applications[package].update_connection(port, protocol)
+				self.applications[package].update_connections(ports)
 		return False
 
 	def read_resource_part(self, data):
@@ -336,7 +405,12 @@ class Connection(object):
 
 
 class ConnectionsHandler(ServiceThread):
+	"""
+		This class handles the connections' filtering.
 
+		The ConnectionsHandler removes unused connections after a fixed amount
+		of time (which is determined in the server properties).
+	"""
 	def __init__(self, tunnel, config):
 		super(ConnectionsHandler, self).__init__()
 		self.tunnel = tunnel
@@ -361,8 +435,14 @@ class AppData(object):
 		self.image = "icon/" + package + ".webp"
 		self.connections = set()
 
-	def update_connection(self, port, protocol):
-		self.connections.add((port, protocol))
+	def clear_connections(self):
+		# clear the old connections set
+		self.connections.clear()
+
+	def update_connections(self, ports):
+		# add the ports and protocols tuples
+		for port in ports:
+			self.connections.add((port, ports[port]))
 
 	def get_name(self):
 		return self.package

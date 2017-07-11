@@ -8,18 +8,27 @@
 ###################################################################
 
 import traceback
-import socket
+import random
+import hashlib
 import urllib
+import socket
+import string
 import debug
+import sys
 import os
 
 from service import ServiceThread
 
 
 class Config(object):
+	"""
+		Contains the server's configuration properties.
+	"""
 
-	USERNAME = "admin"
-	PASSWORD = "@mobileVPN"
+	USERNAME = ""
+	PASSWORD = ""
+
+	KEY = "qNX2tvW06TbkkXNb"
 
 	SERVER_PORT = 1234
 
@@ -33,7 +42,11 @@ class Config(object):
 	PCAP_FILE_SIZE = 1000000
 
 	PCAP_TRAFFIC = True
-	ALLOW_UNSECURE_CONNECTION = False
+	ALLOW_UNSECURE_CONNECTION = True
+
+	APPLICATIONS_LIST = True
+
+	SECURE_CONNECTIONS = False
 
 	BLOCKED_IPS = []
 
@@ -42,24 +55,38 @@ class Config(object):
 		self.data = {}
 
 	def read(self):
+		"""
+			This function reads the configuration from the properties file.
+		"""
 		try:
 			f = open(self.fn, "r")
 			lines = f.read().split("\n")
 			f.close()
+			self.BLOCKED_IPS = []
 			for line in lines:
 				if len(line) > 0 and line[0] != "!" and "=" in line:
 					arg, val = line.split("=")
 					arg = arg.strip(' \t\n\r')
 					val = val.strip(' \t\n\r')
 					self.data[arg] = val
+					if arg == "blocks" and len(val) > 0:
+						self.BLOCKED_IPS = val.split(",")
+							
 		except:
 			debug.debug("[Error] Can't parse the config file.", level=debug.ERROR)
+			debug.debug(traceback.format_exc(), level=debug.ERROR)
+
 
 	def update(self):
+		"""
+			This function updates this config object's properties
+		"""
 		try:
 			for key, val in self.data.items():
 				if key == "port":
 					self.SERVER_PORT = val
+				elif key == "key":
+					self.KEY = val
 				elif key == "max_conn":
 					self.MAX_CLIENTS = int(val)
 				elif key == "close_conn":
@@ -79,7 +106,25 @@ class Config(object):
 		except:
 			debug.debug("[Error] Bad config file format.", level=debug.ERROR)
 
+	def pack(self):
+		"""
+			Packs the properties to be written to the properties file.
+		"""
+		self.data["port"] = self.SERVER_PORT
+		self.data["key"] = self.KEY
+		self.data["max_conn"] = self.MAX_CLIENTS
+		self.data["close_conn"] = self.DISCONNECT_CLIENT_TIME
+		self.data["close_port"] = self.DISCONNECT_SESSION_TIME
+		self.data["pcap"] = self.PCAP_TRAFFIC
+		self.data["unsecure"] = self.ALLOW_UNSECURE_CONNECTION
+		self.data["max_log"] = self.MAX_LOG
+		self.data["username"] = self.USERNAME
+		self.data["password"] = self.PASSWORD
+
 	def write(self, new_data):
+		"""
+			Writes the configuration to the properties file.
+		"""
 		for key, value in new_data.items():
 			self.data[key] = str(value)
 		f = open(self.fn, "w")
@@ -87,8 +132,63 @@ class Config(object):
 		f.write("!  MobileVPN Properties File\n")
 		f.write("! ----------------------------------------------\n")
 		for key, value in self.data.items():
-			f.write(key + "=" + value + "\n")
+			if key != "blocks":
+				f.write(key + "=" + str(value) + "\n")
+		# write the blocked ip addresses
+		f.write("blocks=" + (",".join(self.BLOCKED_IPS)) + "\n")
+		# close the file
 		f.close()
+
+	def __getitem__(self, prop):
+		prop = prop.upper()
+		if prop == "USERNAME":
+			return self.USERNAME
+		if prop == "PASSWORD":
+			return self.PASSWORD
+		if prop == "SERVER_PORT":
+			return self.SERVER_PORT
+		if prop == "MAX_CLIENTS":
+			return self.MAX_CLIENTS
+		if prop == "MAX_LOG":
+			return self.MAX_LOG
+		if prop == "DISCONNECT_CLIENT_TIME":
+			return self.DISCONNECT_CLIENT_TIME
+		if prop == "DISCONNECT_SESSION_TIME":
+			return self.DISCONNECT_SESSION_TIME
+		if prop == "PCAP_FILE_SIZE":
+			return self.PCAP_FILE_SIZE
+		if prop == "PCAP_TRAFFIC":
+			return self.PCAP_TRAFFIC
+		if prop == "ALLOW_UNSECURE_CONNECTION":
+			return self.ALLOW_UNSECURE_CONNECTION
+		if prop == "KEY":
+			return self.KEY
+		return None
+
+	def __setitem__(self, prop, data):
+		prop = prop.upper()
+		if prop == "USERNAME":
+			self.USERNAME = data
+		if prop == "PASSWORD":
+			self.PASSWORD = hashlib.sha256(data).hexdigest()
+		if prop == "SERVER_PORT":
+			self.SERVER_PORT = data
+		if prop == "MAX_CLIENTS":
+			self.MAX_CLIENTS = data
+		if prop == "MAX_LOG":
+			self.MAX_LOG = data
+		if prop == "DISCONNECT_CLIENT_TIME":
+			self.DISCONNECT_CLIENT_TIME = data
+		if prop == "DISCONNECT_SESSION_TIME":
+			self.DISCONNECT_SESSION_TIME = data
+		if prop == "PCAP_FILE_SIZE":
+			self.PCAP_FILE_SIZE = data
+		if prop == "PCAP_TRAFFIC":
+			self.PCAP_TRAFFIC = data
+		if prop == "ALLOW_UNSECURE_CONNECTION":
+			self.ALLOW_UNSECURE_CONNECTION = data
+		if prop == "KEY":
+			self.KEY = data
 
 
 def to_bool(st):
@@ -96,8 +196,15 @@ def to_bool(st):
 
 
 class ConfigHandler(ServiceThread):
-
+	"""
+		A Web Server for configuration.
+	"""
 	def __init__(self, tunnel, port=8080):
+		"""
+			Initializes the config server.
+			@param tunnel The VPN tunnel.
+			@param port The Website port.
+		"""
 		super(ConfigHandler, self).__init__()
 
 		self.tunnel = tunnel
@@ -114,6 +221,9 @@ class ConfigHandler(ServiceThread):
 		self.THREAD_CRASHED = "<font color=\"#f00000\">(probably crashed)</font>"
 
 	def start(self):
+		"""
+			Starts the configuration web server.
+		"""
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.sock.bind((self.ip, self.port))
 		self.sock.listen(5)
@@ -123,9 +233,11 @@ class ConfigHandler(ServiceThread):
 				client, addr = self.sock.accept()
 				self.update()
 				client.settimeout(20)
-				self.handle_client(client, addr)
+				self.handle_request(client, addr)
 				client.close()
 			except socket.timeout:
+				pass
+			except socket.error:
 				pass
 			except:
 				debug.debug("[Config] Error in website request handling", level=debug.ERROR)
@@ -133,21 +245,36 @@ class ConfigHandler(ServiceThread):
 
 
 	def login(self, username, password, client, ip):
+		"""
+			Handles user login.
+			@param username the user's name
+			@param password the user's password
+			@param client the client socket
+			@param ip the client's ip address
+		"""
+		# get the username/password
 		username = urllib.unquote(username)
-		password = urllib.unquote(password)
+		password = hashlib.sha256(urllib.unquote(password)).hexdigest()
+		# check them with our properties
 		if self.config.USERNAME == username and self.config.PASSWORD == password:
-			self.web_sessions.add(ip)
+			session_name = ip + "_" + generate_token(5)
+			self.web_sessions.add(session_name)
 			debug.debug("[Config] %s has logged in." % (ip,))
 			# login successfully
 			fdata, params = self.load_main()
-			return self.send_code(client, 200, fdata)
+			return self.send_code(client, 302, fdata, params="\r\nLocation: /\r\nSet-Cookie: session=%s" % (session_name,))
 		# load the login screen if authentication failed
 		fdata = self.load_file("login.html")
 		fdata = fdata.replace("<helpbar>", "<span style=\"color:#fa3030\">Authentication failed.</span>")
 		return self.send_code(client, 200, fdata)
 
 
-	def handle_client(self, client, addr):
+	def handle_request(self, client, addr):
+		"""
+			Handles a single web request.
+			@param client the client's socket
+			@param addr the client's address (ip, port)
+		"""
 		request = client.recv(1024)
 		header = request.replace("\r", "").split("\n")[0].split(" ")
 		if len(header) != 3:
@@ -177,14 +304,20 @@ class ConfigHandler(ServiceThread):
 		if header[1] == "/favicon.ico":
 			fdata = self.load_file("favicon.png")
 			return self.send_code(client, 200, fdata)
+		# login screen css
+		if header[1] == "/window.css":
+			fdata = self.load_file("window.css")
+			return self.send_code(client, 200, fdata)
+		# get the session's cookie (if any)
+		cookie = self.get_cookie(request, "session")
 		# need authentication
-		if addr[0] not in self.web_sessions:
+		if not cookie or cookie not in self.web_sessions:
 			fdata = self.load_file("login.html")
 			return self.send_code(client, 200, fdata)
 		elif header[1] == "/logout":
 			# disconnect the client
 			debug.debug("[Config] %s has logged out." % (addr[0],))
-			self.web_sessions.remove(addr[0])
+			self.web_sessions.remove(cookie)
 			# load the login page
 			fdata = self.load_file("login.html")
 			return self.send_code(client, 200, fdata)
@@ -206,6 +339,15 @@ class ConfigHandler(ServiceThread):
 			return self.send_code(client, 200, self.get_device_info(header[1][8:]))
 		if header[1].startswith("/stream/"):
 			return self.send_code(client, 200, self.get_html_stream(header[1][8:]))
+		if header[1].startswith("/rmdev/"):
+			return self.send_code(client, 302, self.remove_device(header[1][7:]), params="\r\nLocation: /")
+		if header[1].startswith("/block/"):
+			return self.send_code(client, 302, self.block_ip(header[1][7:]), params="\r\nLocation: /")
+		if header[1].startswith("/unblock/"):
+			return self.send_code(client, 302, self.unblock_ip(header[1][9:]), params="\r\nLocation: /")
+		if header[1].startswith("/restart"):
+			self.restart_vpn()
+			return self.send_code(client, 200, self.load_message("Restart Failed", "This functionality is not implemented yet.<br>Please try again later."))#302, "Restarted, this might take a while..", params="\r\nLocation: /")
 		if header[1].endswith(".webp"):
 			return self.send_code(client, 200, self.load_file(header[1][1:]), params="\r\nContent-Type: image/webp")
 		if header[1].startswith("/?"):
@@ -223,12 +365,17 @@ class ConfigHandler(ServiceThread):
 		return self.send_code(client, 404)
 
 	def send_code(self, client, code, data="", params=""):
+		"""
+			Sends a response to the client.
+		"""
 		if code == 404:
 			client.send("HTTP/1.1 404 Page Not Found\r\n\r\n<b>Page Not found</b><br>The page doesn't exist.")
 		elif code == 500:
 			client.send("HTTP/1.1 500 Internal Server Error\r\n\r\n<b>Internal Server Error</b><br>A successful response could not be generated.")
 		elif code == 200:
 			client.send("HTTP/1.1 200 OK" + params + "\r\nConnection: close\r\n\r\n" + data) 
+		elif code == 302:
+			client.send("HTTP/1.1 302 Found" + params + "\r\nConnection: close\r\n\r\n" + data) 
 
 	def load_file(self, fn):
 		try:
@@ -282,15 +429,27 @@ class ConfigHandler(ServiceThread):
 			data = data.replace("{UNSECURE_CONNECTIONS}", "checked")
 		else:
 			data = data.replace("{UNSECURE_CONNECTIONS}", "")
+		# blocked ips
+		data = data.replace("{BLOCKS}", self.generate_block_table())
 			
-
-		# do some manipulations here..
 		return data, "\r\nContent-type: text/html; charset=utf-8"
+
+
+	def generate_block_table(self):
+		"""
+			Generates a HTML table of blocked IP addresses.
+		"""
+		st = ""
+		i = 0
+		for item in self.config.BLOCKED_IPS:
+			st += "<tr><td>%s</td><td><a href=\"/unblock/%d\">Remove</a></td></tr>" % (item, i)
+			i += 1
+		return st
 
 
 	def generate_devices_table(self):
 		template = "<td><span class=\"device\"><a href=\"javascript:void(0)\" onclick=\"showDevice(%d)\
-\"><img src=\"client_unsecure.png\"></a><br>Name: %s<br>Token: %s==<br></span></td>"
+\"><img src=\"client_unsecure.png\"></a><br>Name: %s<br>Token: %s<br></span></td>"
 		data = "<tr>"
 		i = 0
 		for client_data in self.tunnel.get_clients_data():
@@ -314,13 +473,42 @@ class ConfigHandler(ServiceThread):
 		return data
 
 
+	def block_ip(self, url):
+		if not is_valid_ip_address(url):
+			return "Argument Error!"
+		self.config.BLOCKED_IPS.append(url)
+		self.config.write({})
+		return ""
+
+	def unblock_ip(self, url):
+		try:
+			index = int(url)
+		except:
+			return "Argument Error!"
+		try:
+			self.config.BLOCKED_IPS.pop(index)
+			self.config.write({})
+		except:
+			return "Index Error!"
+		return ""
+
+	def remove_device(self, url):
+		try:
+			deviceId = int(url)
+		except:
+			return "Argument Error!"
+		connection = self.tunnel.get_connection_by_id(deviceId)
+		connection.disconnect()
+		return ""
+
+
 	def get_device_info(self, url):
 		try:
 			deviceId = int(url)
 		except:
 			return "Device Disconnected"
 		# init the data
-		data = "<table><th><td>Package Name</td><td>Ports</td></th>"
+		data = "<table><th><td>Package Name</td><td>Port Sessions</td></th>"
 		# get the connections and apps data
 		connection = self.tunnel.get_connection_by_id(deviceId)
 		if connection == None:
@@ -345,6 +533,9 @@ class ConfigHandler(ServiceThread):
 					span_end = "</span></font>"
 				data += span_start + str(conn[0]) + span_end
 				i += 1
+			# if there are no connections
+			if i == 0:
+				data += "<font color=\"#808080\"><span title=\"This application most likely had active sessions in the past.\">No active sessions.</span></font>"
 			data += "</td>"
 			data += "</tr>"
 		data += "</tr></table>"
@@ -361,15 +552,27 @@ class ConfigHandler(ServiceThread):
 		return self.tunnel.router.nat.get_html_stream(port)
 
 
+	def get_cookie(self, request, name):
+		for line in request.replace("\r", "").split("\n"):
+			if line.startswith("Cookie: %s=" % (name,)):
+				return line[line.find("=")+1:]
+		return None
+
+	def load_message(self, title, text):
+		msg = self.load_file("message.html")
+		return msg.replace("<vpnmsg-title>", title).replace("<vpnmsg-text>", text)
+
 	def update_config(self, url):
 		args = self.parse_config(url)
 		if args == None:
-			return "<html><body<h1>Update Configuration</h1><br>Failed...<br>Check out the console log for more information.</body></html>"
+			return self.load_message("Update Configuration Failed...",\
+				"Check out the console log for more information.") 
 		# save the configuration
 		self.config.write(args)
 		self.config.update()
 		# return
-		return "<html><body<h1>Update Configuration</h1>Saved the new configuration!</body></html>"
+		return self.load_message("Configuration Update",\
+				"Saved the new configuration.") 
 
 
 	def parse_config(self, url):
@@ -412,3 +615,22 @@ class ConfigHandler(ServiceThread):
 		except:
 			debug.debug(traceback.format_exc(), level=debug.ERROR)
 			return None
+	def restart_vpn(self):
+		"""
+			Restarts The MobileVPN server.
+		"""
+		# close all sockets
+		###self.sock.close()
+		###self.tunnel.sock.close()
+		# restart the program
+		###sys.exit()
+
+def is_valid_ip_address(addr):
+	try:
+		socket.inet_aton(addr)
+		return addr.count(".") == 3
+	except socket.error:
+		return False
+
+def generate_token(size):
+	return ''.join(random.choice(string.ascii_uppercase + string.digits) for x in range(size))

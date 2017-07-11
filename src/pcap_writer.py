@@ -83,11 +83,13 @@ class PcapWriter(object):
 		zip_name = os.getcwd() + "\\pcap\\" + self.filename + ".zip"
 		# critical section
 		self.mutex.acquire()
-		# decalre the zip file
+		# declare the zip file
 		zf = zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED)
 		# write the parts
 		for fname in self.parts:
 			zf.write(fname, basename(fname))
+		# write the current part
+		zf.writestr("partial.pcap", self.fdata)
 		zf.close()
 		# read the file
 		f = open(zip_name, "rb")

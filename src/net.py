@@ -208,6 +208,12 @@ class Packet(object):
 			return sport
 		return 0
 
+	def get_src_ip(self):
+		return self.src
+
+	def get_dest_ip(self):
+		return self.dest
+
 	def get_raw_data(self):
 		if self.proto == 6: # tcp
 			offset = (ord(self.data[12]) & 0xf)
