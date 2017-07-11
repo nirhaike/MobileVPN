@@ -60,7 +60,7 @@
 				<span class="code" data-update="partial-log.txt" data-refresh-interval="1000">{LOG}</span>
 				<span class="ulContainer"><a href="log.txt" download>Download full log</a></span>
 				<br>
-				<center><a href="?restart"><span class="sButton">Restart All Services</span></a></center>
+				<center><a href="/restart"><span class="sButton">Restart All Services</span></a></center>
 			</span>
 			<span id="nav2" style="display:none">
 				<font color="#707070">Displaying all server features (Including experimental features).</font>
@@ -117,8 +117,7 @@
 				<span id="block_window">
 					<table>
 						<tr><th>Blocked IP Address</th><th>Operation</th></tr>
-						<tr><td>1.2.3.4</td><td><a href="?removeBlock=0">Remove</a></td></tr>
-						<tr><td>2.4.6.8</td><td><a href="?removeBlock=1">Remove</a></td></tr>
+						{BLOCKS}
 						<tr><td><input type="text" id="block_ip" placeholder="aaa.bbb.ccc.ddd"/></td><td><a href="javascript:void(0)" onclick="blockIP()"><font color="#30609a">Add</font></a></td></tr>
 					</table>
 				</span>
@@ -156,7 +155,7 @@
 			} else {
 				// load the window
 				currDevice = id;
-				document.getElementById('device_data').innerHTML = "<span id=\"close\"><a href=\"javascript:void(0)\" onclick=\"showDevice(-1)\"><b>×</b></a></span><br><b>" + currDevice + " " + data[currDevice][0] + "</b><br>IP address: " + data[currDevice][4] + "<br>Encryption: " + data[currDevice][2] + "<br>Token: " + data[currDevice][1] + "<br>Packets count: " + data[currDevice][3] + "<br><a href=\"?zip=" + currDevice + "\"><span class=\"bluelink\">Download .pcap archive</span></a><br><a href=\"?rmdev=" + currDevice + "\"><span class=\"redlink\">Remove Device</span></a>";
+				document.getElementById('device_data').innerHTML = "<span id=\"close\"><a href=\"javascript:void(0)\" onclick=\"showDevice(-1)\"><b>×</b></a></span><br><b>" + (1+currDevice) + ". " + data[currDevice][0] + "</b><br>IP address: " + data[currDevice][4] + "<br>Encryption: " + data[currDevice][2] + "<br>Token: " + data[currDevice][1] + "<br>Packets count: " + data[currDevice][3] + "<br><a href=\"?zip=" + currDevice + "\"><span class=\"bluelink\">Download .pcap archive</span></a><br><a href=\"/rmdev/" + currDevice + "\"><span class=\"redlink\">Remove Device</span></a>";
 				document.getElementById('device_data').style.opacity = 1;
 				document.getElementById('stream_code').style = "display:block";
 				// load the info span
@@ -170,15 +169,15 @@
 			function(){
 				if (document.getElementById('stream').innerHTML.length == 0) {
 					document.getElementById('stream').innerHTML = "Could not load the requested stream."
-					$("#devinfo").load(deviceData);
 				}
+				$("#devinfo").load(deviceData);
 			});
 		}
 		function saveConfig() {
 			document.getElementById("form_config").submit();
 		}
 		function blockIP() {
-			window.location.href = "?blockIP=" + document.getElementById("block_ip").value;
+			window.location.href = "/block/" + document.getElementById("block_ip").value;
 		}
 		</script>
 	</body>
